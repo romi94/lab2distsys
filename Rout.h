@@ -17,8 +17,8 @@
 #define TYPE_CONTENT 12
 
 /* New message type identifiers */
-#define MSG 21
-#define ACK 22
+#define TYPE_MSG 21
+#define TYPE_ACK 22
 
 /* Maximum quadratic distance radio can reach */
 #define MAXDISTANCE 5
@@ -35,7 +35,7 @@
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
 
-/* The maximum cost */
+/* The maximum distance */
 #define MAXVALUE 65535
 
 /* Channel number for the messages */
@@ -57,6 +57,8 @@ typedef nx_struct rout_msg {
   nx_uint32_t seq;
   nx_uint16_t content;
 	nx_uint32_t hop;
+	nx_uint16_t battery;
+	nx_uint8_t 	linkInc;
 } rout_msg_t;
 
 #endif

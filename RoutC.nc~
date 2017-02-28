@@ -23,6 +23,8 @@ module RoutC
     interface Queue<rout_msg_t> as RouterQueue;
 
     interface SplitControl as MessageControl;
+		interface BitVector as V;
+		
   }
   
 }
@@ -61,7 +63,7 @@ implementation
 	bool freezeState = FALSE;
 
 	/* Temporary message vector (msgs removed when acked) */
-	uint16_t v[MAXNODES];
+	uint32_t v[MAXNODES];
 
   /* ==================== HELPER FUNCTIONS ==================== */
 
@@ -111,7 +113,7 @@ implementation
 				t = i;
 			}
 		}
-		if (nn != t || cStar != min) {
+		if (cStar != min) {
 			nn = t;
 			cStar = min;
 			return TRUE;
@@ -166,6 +168,13 @@ implementation
       stopnode();
     }
   }
+
+	bool calcBat(uint16_t bat, uint16_t d) {
+		if(bat-2*d > 0) {
+			return TRUE;
+		}
+		return FALSE;
+	}
 
   /* Uses the stated level of battery. 
    * Returns wether it was enough or not. 
@@ -380,23 +389,59 @@ implementation
     dbg("Sink", "Sink: Have now collected %d pieces of information\n", collected);
   }
 
+  /* ==================== ACK ==================== */
+
+	void sendACK(uint16_t from) {
+		//Todo
+	}
+
+
   /* ==================== MSG ==================== */
 
-	void sendMSG() {
+	void sendMSG(uint8_t flag) {
 		message->from    = TOS_NODE_ID;       /* The ID of the node */
     message->type    = TYPE_MSG;
 		message->hop		 = 0;
     message->content = cStar;
+		message->battery = battery;
+		message->linkInc = flag;
 		routMessage();
 	}
 
 	void msgReceive(rout_msg_t *mess) {
-		c[mess->from] = mess->content + distanceBetween(TOS_NODE_ID, mess->from);
-		if(calcnn()) {
-			sendMSG();
+    uint16_t d = distanceBetween(TOS_NODE_ID, mess->from)
+//		if (mess->linkInc == 0) {
+			c[mess->from] = mess->content + d;
+			if(calcnn()) {
+				sendMSG(0);
+			}
+//		}
+/*		else if (mess->linkInc == 1 && nn != mess->from) {
+			c[mess->from] = mess->content + d;
+			sendACK(mess->from);
+		}*/
+		if (!calcBat(mess->battery, d) && nn != mess->from) {
+			c[mess->from] = MAXVALUE;
 		}
-		if () {
-			
+/*		if (mess->linkInc == 1 && nn == mess->from) {
+			c[mess->from] = mess->content + d;
+			cStar = c[mess->from];
+			sendMSG(1);
+			for (int i; i < MAXNODES; i++) {
+				v[i] = v[i]*2;
+			}
+			freezeState = TRUE;
+		}*/
+		if (!calcBat(mess->battery, d) && nn == mess->from) {
+			c[mess->from] = MAXVALUE;
+			cStar = c[mess->from];
+			if(calcnn()) {
+				sendMSG(0);
+			}
+			/*sendMSG(1);
+			for (int i; i < MAXNODES; i++) {
+				v[i] = v[i]*2;
+			}*/
 		}
 	}
 
@@ -421,6 +466,7 @@ implementation
       	sendAnnounce();
 			}
 			else {
+				
 				sendMSG();
 			}
       break;
