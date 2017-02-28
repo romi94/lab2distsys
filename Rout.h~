@@ -30,7 +30,7 @@
 #define BATTERYSTART 100
 
 /* Whether basic routing should be used */
-#define BASICROUTER   0
+#define BASICROUTER   1
 
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
@@ -58,6 +58,7 @@ typedef nx_struct rout_msg {
   nx_uint16_t content;
 	nx_uint32_t hop;
 	nx_uint16_t battery;
+	nx_uint8_t 	linkInc;
 } rout_msg_t;
 
 #endif

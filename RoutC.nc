@@ -57,13 +57,14 @@ implementation
 	uint16_t cStar;
 
 	/* The minimal distance vector */
-	uint16_t c[MAXNODES] = {MAXVALUE};
+	uint16_t *c;
+	size_t clength = MAXNODES;
 
 	/* Flag to distinguish between normal state and freeze state (TRUE when freeze)*/
 	bool freezeState = FALSE;
 
 	/* Temporary message vector (msgs removed when acked) */
-	uint32_t v[MAXNODES];
+	//uint32_t v[MAXNODES];
 
   /* ==================== HELPER FUNCTIONS ==================== */
 
@@ -99,15 +100,18 @@ implementation
       return "ANNOUNCEMENT";
     case TYPE_CONTENT:
       return "CONTENT";
+    case TYPE_MSG:
+			return "MSG";
     default:
       return "Unknown";
     }
   }
 
 	bool calcnn() {
-		uint16_t min;
+		uint16_t min=MAXVALUE;
 		uint16_t t;
-		for (int16_t i=0; i<MAXNODES; i++) {
+		uint16_t i;
+		for (i = 0; i < clength; i++) {
 			if (i == 0 || min > c[i]) {
 				min = c[i];
 				t = i;
@@ -115,6 +119,7 @@ implementation
 		}
 		if (cStar != min) {
 			nn = t;
+			router = nn;
 			cStar = min;
 			return TRUE;
 		}
@@ -138,6 +143,7 @@ implementation
 
   event void Boot.booted() {
     call RandomInit.init();
+		c = (uint16_t *) malloc(sizeof(uint16_t)*clength);
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
   }
@@ -230,6 +236,9 @@ implementation
       case TYPE_CONTENT:
 	dbgMessageLineInt("Content","Content: Sending message ",message," via ",receiver);
 	break;
+			case TYPE_MSG:
+	dbgMessageLineInt("Msg","Msg: Sending message ",message," via ",receiver);
+	break;
       default:
    	dbg("Error","ERROR: Unknown message type");
       }
@@ -265,7 +274,13 @@ implementation
 	    routerlessreported = TRUE;
 	  }
 	} else {
-	  receiver = router;
+    if (BASICROUTER) {
+	  	receiver = router;
+		}
+		else {
+	    dbg("Rout", "Rout: %d\n", nn);
+			receiver = nn;
+		}
 	  send = TRUE;
 	}
 	break;
@@ -319,7 +334,7 @@ implementation
    */
   void announceReceive(rout_msg_t *mess) {
     if(switchrouter) {
-      /* We need updated router information */
+      /* We need updated router infBGvIJoCnDR2jUjMormation */
       switchrouter = FALSE;
       router = -1;
     }
@@ -405,11 +420,12 @@ implementation
     message->content = cStar;
 		message->battery = battery;
 		message->linkInc = flag;
+		dbg("Msg", "Msg: To rout.\n");
 		routMessage();
 	}
 
 	void msgReceive(rout_msg_t *mess) {
-    uint16_t d = distanceBetween(TOS_NODE_ID, mess->from)
+    uint16_t d = distanceBetween(TOS_NODE_ID, mess->from);
 //		if (mess->linkInc == 0) {
 			c[mess->from] = mess->content + d;
 			if(calcnn()) {
@@ -466,8 +482,8 @@ implementation
       	sendAnnounce();
 			}
 			else {
-				
-				sendMSG();
+				dbg("Msg", "Msg: To send.\n");
+				sendMSG(0);
 			}
       break;
     case ROUND_CONTENT: /* Message time */
@@ -502,7 +518,7 @@ implementation
       }
       break;
 		case TYPE_MSG:
-      dbgMessageLine("MSG","MSG: Received ",mess);
+      dbgMessageLine("Msg","MSG: Received ",mess);
       msgReceive(mess);
       break;
     default:

@@ -2,7 +2,7 @@ Announcement		# Announcement messages
 Content			# Content messages
 Round			# Round announcements
 Rout			# Problems with routing
-RoutDetail		# Low lever rout information
+#RoutDetail		# Low lever rout information
 #Event			# Reports on all events
 Error			# Error reports
 Sink			# Sink reports
