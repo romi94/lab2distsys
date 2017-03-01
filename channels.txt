@@ -2,14 +2,13 @@ Announcement		# Announcement messages
 Content			# Content messages
 Round			# Round announcements
 Rout			# Problems with routing
-RoutDetail		# Low lever rout information
+#RoutDetail		# Low lever rout information
 #Event			# Reports on all events
 Error			# Error reports
 Sink			# Sink reports
 Battery			# When battery runs out
 #BatteryUse		# Battery use
 #Debug
-Msg
 ########## /lib/tossim
 #Acks			# Not much, just that acks should be sent
 #AM			# Received and snooped messages are reported

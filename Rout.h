@@ -16,10 +16,6 @@
 #define TYPE_ANNOUNCEMENT 11
 #define TYPE_CONTENT 12
 
-/* New message type identifiers */
-#define TYPE_MSG 21
-#define TYPE_ACK 22
-
 /* Maximum quadratic distance radio can reach */
 #define MAXDISTANCE 5
 
@@ -30,13 +26,10 @@
 #define BATTERYSTART 100
 
 /* Whether basic routing should be used */
-#define BASICROUTER   0
+#define BASICROUTER   1
 
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
-
-/* The maximum distance */
-#define MAXVALUE 65535
 
 /* Channel number for the messages */
 #define MESSAGE_CHANNEL 7
@@ -44,6 +37,8 @@
 /* Max nr of nodes */
 #define MAXNODES 50;
 
+/* The maximum distance */
+#define MAXVALUE 65535
 
 /* The datastructure for the messages 
  * For additions use the nx_ types.
@@ -56,9 +51,7 @@ typedef nx_struct rout_msg {
   nx_uint16_t from;
   nx_uint32_t seq;
   nx_uint16_t content;
-	nx_uint32_t hop;
 	nx_uint16_t battery;
-	nx_uint8_t 	linkInc;
 } rout_msg_t;
 
 #endif

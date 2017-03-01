@@ -23,8 +23,6 @@ module RoutC
     interface Queue<rout_msg_t> as RouterQueue;
 
     interface SplitControl as MessageControl;
-		interface BitVector as V;
-		
   }
   
 }
@@ -50,21 +48,12 @@ implementation
   /* Battery level */
   uint16_t battery = 0;
 
-	/* The node that provides the smallest estimated distance to sink */
-	uint16_t nn;
-
-	/* The distance to the sink through nn */
+	/* The distance to the sink through router */
 	uint16_t cStar;
 
 	/* The minimal distance vector */
 	uint16_t *c;
 	size_t clength = MAXNODES;
-
-	/* Flag to distinguish between normal state and freeze state (TRUE when freeze)*/
-	bool freezeState = FALSE;
-
-	/* Temporary message vector (msgs removed when acked) */
-	//uint32_t v[MAXNODES];
 
   /* ==================== HELPER FUNCTIONS ==================== */
 
@@ -105,20 +94,21 @@ implementation
     }
   }
 
-	bool calcnn() {
+	bool calcRouter() {
 		uint16_t min=MAXVALUE;
 		uint16_t t;
 		uint16_t i;
 		for (i = 0; i < clength; i++) {
-			if (i == 0 || min > c[i]) {
+			if (c[i] != 0 && min > c[i]) {
 				min = c[i];
 				t = i;
 			}
 		}
+    dbg("Rout","cStar: %d, min: %d\n", cStar, min);
 		if (cStar != min) {
-			nn = t;
-			router = nn;
+			router = t;
 			cStar = min;
+    	dbg("Rout","cStar: %d, router: %d\n", cStar, router);
 			return TRUE;
 		}
 		return FALSE;
@@ -173,13 +163,6 @@ implementation
     }
   }
 
-	bool calcBat(uint16_t bat, uint16_t d) {
-		if(bat-2*d > 0) {
-			return TRUE;
-		}
-		return FALSE;
-	}
-
   /* Uses the stated level of battery. 
    * Returns wether it was enough or not. 
    * Shuts the node down if battery is emptied
@@ -218,6 +201,13 @@ implementation
     }
   }
 
+	bool calcBat(uint16_t bat, uint16_t receiver) {
+		if(bat > 2*batteryRequiredForSend(receiver)) {
+			return TRUE;
+		}
+		return FALSE;
+	}
+
   /* ==================== ROUTING ==================== */
 
   void sendMessage(am_addr_t receiver) {
@@ -229,13 +219,10 @@ implementation
       
       switch(message->type) {
       case TYPE_ANNOUNCEMENT:
-	dbgMessageLine("Announcement","Announcement: Sending message ",message);
+//	dbgMessageLine("Announcement","Announcement: Sending message ",message);
 	break;
       case TYPE_CONTENT:
 	dbgMessageLineInt("Content","Content: Sending message ",message," via ",receiver);
-	break;
-			case TYPE_MSG:
-	dbgMessageLineInt("Msg","Msg: Sending message ",message," via ",receiver);
 	break;
       default:
    	dbg("Error","ERROR: Unknown message type");
@@ -260,7 +247,7 @@ implementation
       uint8_t type = m.type;
       dbg("RoutDetail", "Rout: Message will be sent.\n");
       switch(type) {
-      case TYPE_ANNOUNCEMENT: //here to announce, he is sending to everyone
+      case TYPE_ANNOUNCEMENT:
 	receiver = AM_BROADCAST_ADDR;
 	send = TRUE;
 	break;
@@ -272,21 +259,11 @@ implementation
 	    routerlessreported = TRUE;
 	  }
 	} else {
-    if (BASICROUTER) {
-	  	receiver = router;
-		}
-		else {
-	    dbg("Rout", "Rout: %d\n", nn);
-			receiver = nn;
-		}
+	  receiver = router;
 	  send = TRUE;
 	}
 	break;
-	case TYPE_MSG:
-				receiver = AM_BROADCAST_ADDR;
-				send = TRUE;
-				break;
-  default:
+      default:
 	dbg("Error", "ERROR: Unknown message type %d\n", type);
       }
       if(send) {
@@ -300,16 +277,14 @@ implementation
     if(call RouterQueue.enqueue(*message) != SUCCESS) {
       dbgMessageLine("Rout", "Rout: queue full, message dropped:", message);
     }
-		if(BASICROUTER) {
-    	/* Stupid way to put in front of queue */
-    	if(message->type == TYPE_ANNOUNCEMENT) {
-      	rout_msg_t m = call RouterQueue.head();
-      	while(m.type != TYPE_ANNOUNCEMENT) {
-					m = call RouterQueue.dequeue();
-					call RouterQueue.enqueue(m);
-					m = call RouterQueue.head();
-      	}
-			}
+    /* Stupid way to put in front of queue */
+    if(message->type == TYPE_ANNOUNCEMENT) {
+      rout_msg_t m = call RouterQueue.head();
+      while(m.type != TYPE_ANNOUNCEMENT) {
+	m = call RouterQueue.dequeue();
+	call RouterQueue.enqueue(m);
+	m = call RouterQueue.head();
+      }
     }
     rout();
   }
@@ -322,6 +297,8 @@ implementation
   void sendAnnounce() {
     message->from = TOS_NODE_ID;       /* The ID of the node */
     message->type = TYPE_ANNOUNCEMENT;
+		message->content = cStar;
+		message->battery = battery;
     routMessage();
   }
   
@@ -332,17 +309,17 @@ implementation
    */
   void announceReceive(rout_msg_t *mess) {
     if(switchrouter) {
-      /* We need updated router infBGvIJoCnDR2jUjMormation */
+      /* We need updated router information */
       switchrouter = FALSE;
       router = -1;
     }
 
     /* Here is the Basic routing algorithm. You will do a better one below. */
     if(BASICROUTER) {
-      int16_t myd = distance(TOS_NODE_ID); //distance between sink node and ID
-      int16_t d   = distance(mess->from); 
+      int16_t myd = distance(TOS_NODE_ID);
+      int16_t d   = distance(mess->from);
       if(router == -1 && myd > d) {
-				router = mess->from;
+	router = mess->from;
       }
     } 
 
@@ -353,18 +330,34 @@ implementation
      * BASICROUTER, but it's not a requirement.
      */
     else {
-	/* THIS IS WHERE WE NEED TO CODE */
-      int16_t myd = distance(TOS_NODE_ID); //distance between sink node and ID
-      int16_t d   = distance(mess->from); 
+			//First announcement, on startup
+      int16_t myd = distance(TOS_NODE_ID);
+      int16_t d   = distance(mess->from);
       if(router == -1 && myd > d) {
+				dbg("Announcement", "Announcement: first announcement\n");
 				router = mess->from;
       }
-			else if (myd > d) {
-				int16_t routerd = distance(router);
-				if (routerd > d) {
-					router = mess->from;
+			c[mess->from] = mess->content + distanceBetween(TOS_NODE_ID, mess->from);
+			dbg("Announcement", "Announcement: c[mess->from]: %d\n", c[mess->from]);
+			if(calcRouter()) {
+				sendAnnounce();
+			}
+//			calcRouter();
+			dbg("Announcement", "Announcement: after calcRouter1\n");
+			if (!calcBat(mess->battery, mess->from) && router != mess->from) {
+				dbg("Announcement", "Announcement: node dead but not my router\n");
+				c[mess->from] = MAXVALUE;
+			}
+			if (!calcBat(mess->battery, mess->from) && router == mess->from) {
+				dbg("Announcement", "Announcement: node dead and my router\n");
+				c[mess->from] = MAXVALUE;
+				cStar = c[mess->from];
+				if(calcRouter()) {
+					sendAnnounce();
 				}
-      }
+//				calcRouter();
+				dbg("Announcement", "Announcement: after calcRouter2\n");
+			}
     }
   }
 
@@ -402,63 +395,6 @@ implementation
     dbg("Sink", "Sink: Have now collected %d pieces of information\n", collected);
   }
 
-  /* ==================== ACK ==================== */
-
-	void sendACK(uint16_t from) {
-		//Todo
-	}
-
-
-  /* ==================== MSG ==================== */
-
-	void sendMSG(uint8_t flag) {
-		message->from    = TOS_NODE_ID;       /* The ID of the node */
-    message->type    = TYPE_MSG;
-		message->hop		 = 0;
-    message->content = cStar;
-		message->battery = battery;
-		message->linkInc = flag;
-		dbg("Msg", "Msg: To rout.\n");
-		routMessage();
-	}
-
-	void msgReceive(rout_msg_t *mess) {
-    uint16_t d = distanceBetween(TOS_NODE_ID, mess->from);
-//		if (mess->linkInc == 0) {
-			c[mess->from] = mess->content + d;
-			if(calcnn()) {
-				sendMSG(0);
-			}
-//		}
-/*		else if (mess->linkInc == 1 && nn != mess->from) {
-			c[mess->from] = mess->content + d;
-			sendACK(mess->from);
-		}*/
-		if (!calcBat(mess->battery, d) && nn != mess->from) {
-			c[mess->from] = MAXVALUE;
-		}
-/*		if (mess->linkInc == 1 && nn == mess->from) {
-			c[mess->from] = mess->content + d;
-			cStar = c[mess->from];
-			sendMSG(1);
-			for (int i; i < MAXNODES; i++) {
-				v[i] = v[i]*2;
-			}
-			freezeState = TRUE;
-		}*/
-		if (!calcBat(mess->battery, d) && nn == mess->from) {
-			c[mess->from] = MAXVALUE;
-			cStar = c[mess->from];
-			if(calcnn()) {
-				sendMSG(0);
-			}
-			/*sendMSG(1);
-			for (int i; i < MAXNODES; i++) {
-				v[i] = v[i]*2;
-			}*/
-		}
-	}
-
   /* ==================== EVENT CENTRAL ==================== */
 
   /* This is what drives the rounds
@@ -476,13 +412,7 @@ implementation
       if(isSink()) {
 	dbg("Round","========== Round %d ==========\n",roundcounter/2);
       }
-			if (BASICROUTER) {
-      	sendAnnounce();
-			}
-			else {
-				dbg("Msg", "Msg: To send.\n");
-				sendMSG(0);
-			}
+      sendAnnounce();
       break;
     case ROUND_CONTENT: /* Message time */
       if(!isSink()) {
@@ -514,10 +444,6 @@ implementation
       } else {
 	contentReceive(mess);
       }
-      break;
-		case TYPE_MSG:
-      dbgMessageLine("Msg","MSG: Received ",mess);
-      msgReceive(mess);
       break;
     default:
       dbg("Error", "ERROR: Unknown message type %d\n",mess->type);
