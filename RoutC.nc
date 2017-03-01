@@ -55,6 +55,9 @@ implementation
 	uint16_t *c;
 	size_t clength = MAXNODES;
 
+	/* Flag, if true: this node is a cluster head */
+	bool clusterhead = TRUE;
+
   /* ==================== HELPER FUNCTIONS ==================== */
 
   /* Returns a random number between 0 and n-1 (both inclusive)	*/
@@ -131,6 +134,10 @@ implementation
 
   event void Boot.booted() {
     call RandomInit.init();
+		clusterhead = random(2);
+		if (isSink()) {
+			clusterhead = TRUE;
+		}
 		c = (uint16_t *) malloc(sizeof(uint16_t)*clength);
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
@@ -299,6 +306,7 @@ implementation
     message->type = TYPE_ANNOUNCEMENT;
 		message->content = cStar;
 		message->battery = battery;
+		message->clheaddist = clusterhead;
     routMessage();
   }
   
@@ -330,7 +338,36 @@ implementation
      * BASICROUTER, but it's not a requirement.
      */
     else {
-			//First announcement, on startup
+			if (clusterhead == TOS_NODE_ID) {
+				//Init router to be the sender of the first ann-msg.
+      	int16_t myd = distance(TOS_NODE_ID);
+      	int16_t d   = distance(mess->from);
+      	if(router == -1 && myd > d) {
+					dbg("Announcement", "Announcement: first announcement\n");
+					router = mess->from;
+      	}
+				c[mess->from] = mess->content + distanceBetween(TOS_NODE_ID, mess->from);
+				dbg("Announcement", "Announcement: c[mess->from]: %d\n", c[mess->from]);
+				calcRouter();
+				dbg("Announcement", "Announcement: after calcRouter1\n");
+				if (!calcBat(mess->battery, mess->from) && router != mess->from) {
+					dbg("Announcement", "Announcement: node dead but not my router\n");
+					c[mess->from] = MAXVALUE;
+				}
+				if (!calcBat(mess->battery, mess->from) && router == mess->from) {
+					dbg("Announcement", "Announcement: node dead and my router\n");
+					c[mess->from] = MAXVALUE;
+					cStar = c[mess->from];
+					calcRouter();
+					dbg("Announcement", "Announcement: after calcRouter2\n");
+				}
+			}
+			else if (mess->clhead) {
+//Check if this is a good cluster head. If yes:
+				
+			}
+
+			//Init router to be the sender of the first ann-msg.
       int16_t myd = distance(TOS_NODE_ID);
       int16_t d   = distance(mess->from);
       if(router == -1 && myd > d) {
