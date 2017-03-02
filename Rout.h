@@ -52,7 +52,7 @@ typedef nx_struct rout_msg {
   nx_uint32_t seq;
   nx_uint16_t content;
 	nx_uint16_t battery;
-  nx_uint16_t  clheaddist;
+  nx_uint8_t	isclhead;
 } rout_msg_t;
 
 #endif
