@@ -104,11 +104,12 @@ implementation
 				t = i;
 			}
 		}
-    dbg("Rout","cStar: %d, min: %d\n", cStar, min);
+    dbg("Announcement","cStar: %d, min: %d\n", cStar, min);
 		if (cStar != min) {
 			router = t;
 			cStar = min;
-    	dbg("Rout","cStar: %d, router: %d\n", cStar, router);
+			dbg("Announcement","CHANGE CHANGE !!!!!\n\n\n");
+    	dbg("Announcement","cStar: %d, router: %d\n", cStar, router);
 			return TRUE;
 		}
 		return FALSE;
@@ -132,6 +133,7 @@ implementation
   event void Boot.booted() {
     call RandomInit.init();
 		c = (uint16_t *) malloc(sizeof(uint16_t)*clength);
+    cStar = distance(TOS_NODE_ID);
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
   }
@@ -219,7 +221,7 @@ implementation
       
       switch(message->type) {
       case TYPE_ANNOUNCEMENT:
-	dbgMessageLine("Announcement","Announcement: Sending message ",message);
+	//dbgMessageLine("Announcement","Announcement: Sending message ",message);
 	break;
       case TYPE_CONTENT:
 	dbgMessageLineInt("Content","Content: Sending message ",message," via ",receiver);
@@ -332,13 +334,14 @@ implementation
     else {
 			//First announcement, on startup
       int16_t myd = distance(TOS_NODE_ID);
-      int16_t d   = distance(mess->from);
+      int16_t d   =  mess->content + distanceBetween(TOS_NODE_ID, mess->from);
       if(router == -1 && myd > d) {
 				dbg("Announcement", "Announcement: first announcement\n");
 				router = mess->from;
+				cStar = d;
       }
-			c[mess->from] = mess->content + distanceBetween(TOS_NODE_ID, mess->from);
-			dbg("Announcement", "Announcement: c[mess->from]: %d\n", c[mess->from]);
+			c[mess->from] = d;
+			dbg("Announcement", "Announcement: c[mess->from]: %d, mess->from: %d\n", c[mess->from], mess->from);
 			calcRouter();
 			dbg("Announcement", "Announcement: after calcRouter1\n");
 			if (!calcBat(mess->battery, mess->from) && router != mess->from) {
@@ -428,7 +431,7 @@ implementation
     dbgMessageLine("Event","--- EVENT ---: Received ",mess);
     switch(mess->type) {
     case TYPE_ANNOUNCEMENT:
-      dbgMessageLine("Announcement","Announcement: Received ",mess);
+      //dbgMessageLine("Announcement","Announcement: Received ",mess);
       announceReceive(mess);
       break;
     case TYPE_CONTENT:
