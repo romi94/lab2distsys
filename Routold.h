@@ -26,7 +26,7 @@
 #define BATTERYSTART 100
 
 /* Whether basic routing should be used */
-#define BASICROUTER   0
+#define BASICROUTER   1
 
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
@@ -34,6 +34,11 @@
 /* Channel number for the messages */
 #define MESSAGE_CHANNEL 7
 
+/* Max nr of nodes */
+#define MAXNODES 50;
+
+/* The maximum distance */
+#define MAXVALUE 65535
 
 /* The datastructure for the messages 
  * For additions use the nx_ types.
@@ -46,6 +51,8 @@ typedef nx_struct rout_msg {
   nx_uint16_t from;
   nx_uint32_t seq;
   nx_uint16_t content;
+	nx_uint16_t battery;
+  nx_uint8_t	isclhead;
 } rout_msg_t;
 
 #endif
