@@ -49,7 +49,7 @@ implementation
   uint16_t battery = 0;
 
 	/* The distance to the sink through router */
-	uint16_t cStar;
+	uint16_t cStar=0;
 
 	/* The minimal distance vector */
 	uint16_t *c;
@@ -104,12 +104,9 @@ implementation
 				t = i;
 			}
 		}
-    dbg("Announcement","cStar: %d, min: %d\n", cStar, min);
 		if (cStar != min) {
 			router = t;
 			cStar = min;
-			dbg("Announcement","CHANGE CHANGE !!!!!\n\n\n");
-    	dbg("Announcement","cStar: %d, router: %d\n", cStar, router);
 			return TRUE;
 		}
 		return FALSE;
@@ -204,7 +201,7 @@ implementation
   }
 
 	bool calcBat(uint16_t bat, uint16_t receiver) {
-		if(bat > 2*batteryRequiredForSend(receiver)) {
+		if(bat > distanceBetween(TOS_NODE_ID,receiver) + distance(receiver)) {
 			return TRUE;
 		}
 		return FALSE;
@@ -310,6 +307,7 @@ implementation
    * its router.
    */
   void announceReceive(rout_msg_t *mess) {
+		uint16_t j;
     if(switchrouter) {
       /* We need updated router information */
       switchrouter = FALSE;
@@ -335,25 +333,21 @@ implementation
 			//First announcement, on startup
       int16_t myd = distance(TOS_NODE_ID);
       int16_t d   =  mess->content + distanceBetween(TOS_NODE_ID, mess->from);
-      if(router == -1 && myd > d) {
-				dbg("Announcement", "Announcement: first announcement\n");
+			c[mess->from] = d;
+      if(router == -1 && myd >= d) {
 				router = mess->from;
 				cStar = d;
       }
-			c[mess->from] = d;
-			dbg("Announcement", "Announcement: c[mess->from]: %d, mess->from: %d\n", c[mess->from], mess->from);
-			calcRouter();
-			dbg("Announcement", "Announcement: after calcRouter1\n");
-			if (!calcBat(mess->battery, mess->from) && router != mess->from) {
-				dbg("Announcement", "Announcement: node dead but not my router\n");
-				c[mess->from] = MAXVALUE;
-			}
-			if (!calcBat(mess->battery, mess->from) && router == mess->from) {
-				dbg("Announcement", "Announcement: node dead and my router\n");
-				c[mess->from] = MAXVALUE;
-				cStar = c[mess->from];
+			else {
 				calcRouter();
-				dbg("Announcement", "Announcement: after calcRouter2\n");
+				if (!calcBat(mess->battery, mess->from) && router != mess->from) {
+					c[mess->from] = MAXVALUE;
+				}
+				if (!calcBat(mess->battery, mess->from) && router == mess->from) {
+					c[mess->from] = MAXVALUE;
+					cStar = c[mess->from];
+					calcRouter();
+				}
 			}
     }
   }
