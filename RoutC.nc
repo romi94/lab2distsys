@@ -260,10 +260,17 @@ implementation
    * Here is what is sent in an announcement
    */
   void sendAnnounce() {
+    //uint16_t i;
     message->from = TOS_NODE_ID;       /* The ID of the node */
     message->type = TYPE_ANNOUNCEMENT;
 		message->content = battery;
-    routMessage();
+    /*for( i = 0; i < 40; i++){
+			if(distance(i) > distance(TOS_NODE_ID)){
+					message->from = i;					
+					routMessage();
+				}
+		}*/
+		routMessage();    
   }
   
   /*
@@ -301,9 +308,9 @@ implementation
 				router = mess->from;
       }
 			else {
-      	int16_t routd = distance(router)+distanceBetween(TOS_NODE_ID, router);
+      	int16_t routd = distance(router)+ distanceBetween(TOS_NODE_ID, router);
 				if (routd > d+dn && mess->content > d+dn) {
-				router = mess->from;
+					router = mess->from;
 				}
 			}
     }

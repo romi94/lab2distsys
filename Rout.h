@@ -46,6 +46,7 @@ typedef nx_struct rout_msg {
   nx_uint16_t from;
   nx_uint32_t seq;
   nx_uint16_t content;
+  nx_uint16_t to;
 } rout_msg_t;
 
 #endif
