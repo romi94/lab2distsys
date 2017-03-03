@@ -51,10 +51,6 @@ implementation
 	/* The distance to the sink through router */
 	uint16_t cStar=0;
 
-	/* The minimal distance vector */
-	uint16_t *c;
-	size_t clength = MAXNODES;
-
   /* ==================== HELPER FUNCTIONS ==================== */
 
   /* Returns a random number between 0 and n-1 (both inclusive)	*/
@@ -94,24 +90,6 @@ implementation
     }
   }
 
-	bool calcRouter() {
-		uint16_t min=MAXVALUE;
-		uint16_t t;
-		uint16_t i;
-		for (i = 0; i < clength; i++) {
-			if (c[i] != 0 && min > c[i]) {
-				min = c[i];
-				t = i;
-			}
-		}
-		if (cStar != min) {
-			router = t;
-			cStar = min;
-			return TRUE;
-		}
-		return FALSE;
-	}
-
 #define dbgMessageLine(channel,str,mess) dbg(channel,"%s{%d, %s, %d}\n", str, mess->from, messageTypeString(mess->type),mess->seq);
 #define dbgMessageLineInt(channel,str1,mess,str2,num) dbg(channel,"%s{%d, %s, %d}%s%d\n", str1, mess->from, messageTypeString(mess->type),mess->seq,str2,num);
 
@@ -129,7 +107,6 @@ implementation
 
   event void Boot.booted() {
     call RandomInit.init();
-		c = (uint16_t *) malloc(sizeof(uint16_t)*clength);
     cStar = distance(TOS_NODE_ID);
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
@@ -333,20 +310,14 @@ implementation
 			//First announcement, on startup
       int16_t myd = distance(TOS_NODE_ID);
       int16_t d   =  mess->content + distanceBetween(TOS_NODE_ID, mess->from);
-			c[mess->from] = d;
       if(router == -1 && myd >= d) {
 				router = mess->from;
 				cStar = d;
       }
 			else {
-				calcRouter();
-				if (!calcBat(mess->battery, mess->from) && router != mess->from) {
-					c[mess->from] = MAXVALUE;
-				}
-				if (!calcBat(mess->battery, mess->from) && router == mess->from) {
-					c[mess->from] = MAXVALUE;
-					cStar = c[mess->from];
-					calcRouter();
+        if(cStar > d &&  calcBat(mess->battery, mess->from)){
+					router = mess->from;
+					cStar = d;
 				}
 			}
     }
