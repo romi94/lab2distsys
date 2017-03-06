@@ -183,17 +183,18 @@ implementation
       locked = TRUE;
       
       switch(message->type) {
-      case TYPE_ANNOUNCEMENT:
-	dbgMessageLine("Announcement","Announcement: Sending message ",message);
-	break;
-      case TYPE_CONTENT:
-	dbgMessageLineInt("Content","Content: Sending message ",message," via ",receiver);
-	break;
-      default:
-   	dbg("Error","ERROR: Unknown message type");
-      }
-    } else {
-   	dbg("Error","ERROR: MessageSend failed");
+				case TYPE_ANNOUNCEMENT:
+					dbgMessageLine("Announcement","Announcement: Sending message ",message);
+					break;
+				case TYPE_CONTENT:
+					dbgMessageLineInt("Content","Content: Sending message ",message," via ",receiver);
+					break;
+				default:
+					dbg("Error","ERROR: Unknown message type");
+				}
+    } 
+		else {
+			dbg("Error","ERROR: MessageSend failed");
     }
     batteryCheck();
   }
@@ -212,30 +213,31 @@ implementation
       uint8_t type = m.type;
       dbg("RoutDetail", "Rout: Message will be sent.\n");
       switch(type) {
-      case TYPE_ANNOUNCEMENT:
-	receiver = AM_BROADCAST_ADDR;
-	send = TRUE;
-	break;
-      case TYPE_CONTENT:
-	if(router == -1) {
-	  dbg("RoutDetail", "Rout: No router.\n");
-	  if(!routerlessreported) {
-	    dbg("Rout", "Rout: No router to send to\n");
-	    routerlessreported = TRUE;
-	  }
-	} else {
-	  receiver = router;
-	  send = TRUE;
-	}
-	break;
-      default:
-	dbg("Error", "ERROR: Unknown message type %d\n", type);
-      }
-      if(send) {
-	*message = call RouterQueue.dequeue();
-	sendMessage(receiver);
-      }
-    }
+				case TYPE_ANNOUNCEMENT:
+					receiver = AM_BROADCAST_ADDR;
+					send = TRUE;
+					break;
+				case TYPE_CONTENT:
+					if(router == -1) {
+						dbg("RoutDetail", "Rout: No router.\n");
+						if(!routerlessreported) {
+							dbg("Rout", "Rout: No router to send to\n");
+							routerlessreported = TRUE;
+						}
+					} 
+					else {
+						receiver = router;
+						send = TRUE;
+					}
+					break;
+				default:
+					dbg("Error", "ERROR: Unknown message type %d\n", type);
+			}
+			if(send) {
+				*message = call RouterQueue.dequeue();
+				sendMessage(receiver);
+			}
+		}
   }
 
   void routMessage() {
@@ -246,9 +248,9 @@ implementation
     if(message->type == TYPE_ANNOUNCEMENT) {
       rout_msg_t m = call RouterQueue.head();
       while(m.type != TYPE_ANNOUNCEMENT) {
-	m = call RouterQueue.dequeue();
-	call RouterQueue.enqueue(m);
-	m = call RouterQueue.head();
+				m = call RouterQueue.dequeue();
+				call RouterQueue.enqueue(m);
+				m = call RouterQueue.head();
       }
     }
     rout();
@@ -260,16 +262,9 @@ implementation
    * Here is what is sent in an announcement
    */
   void sendAnnounce() {
-    //uint16_t i;
     message->from = TOS_NODE_ID;       /* The ID of the node */
     message->type = TYPE_ANNOUNCEMENT;
 		message->content = battery;
-    /*for( i = 0; i < 40; i++){
-			if(distance(i) > distance(TOS_NODE_ID)){
-					message->from = i;					
-					routMessage();
-				}
-		}*/
 		routMessage();    
   }
   
@@ -286,7 +281,7 @@ implementation
     }
 
     /* Here is the Basic routing algorithm. You will do a better one below. */
-    if(BASICROUTER) {
+    if(BASICROUTER == 0) {
       int16_t myd = distance(TOS_NODE_ID);
       int16_t d   = distance(mess->from);
       if(router == -1 && myd > d) {
@@ -294,13 +289,9 @@ implementation
       }
     } 
 
-    /* Here is where you take a better decision. 
-     * Set BASICROUTER to 0 and your algorithm runs istead.
-     * You have to change in other places as well of course.
-     * It's nice if you can switch back and forth by setting
-     * BASICROUTER, but it's not a requirement.
+    /* Our implementation of Basic Routing
      */
-    else {
+    if(BASICROUTER == 1) {
       int16_t myd = distance(TOS_NODE_ID);
       int16_t d   = distance(mess->from);
 			int16_t dn	= distanceBetween(TOS_NODE_ID, mess->from);
@@ -314,6 +305,9 @@ implementation
 				}
 			}
     }
+		if(BASICROUTER == 2){
+			;
+		}
   }
 
   /* ==================== CONTENT ==================== */
