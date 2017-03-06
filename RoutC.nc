@@ -47,6 +47,12 @@ implementation
 
   /* Battery level */
   uint16_t battery = 0;
+  
+  /* Flag, if true: this node is a cluster head */
+	uint16_t clusterhead;
+  
+  /*Count at cluster head*/
+	uint16_t	count = 1;
 
   /* ==================== HELPER FUNCTIONS ==================== */
 
@@ -104,6 +110,12 @@ implementation
 
   event void Boot.booted() {
     call RandomInit.init();
+		if (isSink() || random(2)) {
+			clusterhead = TOS_NODE_ID;
+		}
+    else{
+      clusterhead = -1;
+    }
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
   }
@@ -265,6 +277,7 @@ implementation
     message->from = TOS_NODE_ID;       /* The ID of the node */
     message->type = TYPE_ANNOUNCEMENT;
     message->content = battery;
+    message->clhead = clusterhead;
     routMessage();    
   }
   
@@ -306,7 +319,35 @@ implementation
       }
     }
     if(BASICROUTER == 2){
-      ;
+      if (clusterhead == TOS_NODE_ID && mess->clhead == mess->from) {
+        int16_t myd = distance(TOS_NODE_ID);
+        int16_t d   = distance(mess->from);
+        int16_t dn  = distanceBetween(TOS_NODE_ID, mess->from);
+        if(router == -1 && myd >= d+dn) {
+          router = mess->from;
+        }
+        else {
+          int16_t routd = distance(router)+ distanceBetween(TOS_NODE_ID, router);
+          if (routd > d+dn && mess->content > d+dn) {
+            router = mess->from;
+          }
+        }
+      }
+      else{
+        int16_t dn  = distanceBetween(TOS_NODE_ID, mess->from);
+        int16_t d   = distanceBetween(mess->from, mess->clhead);
+        if(router == -1) {
+          router = mess->from;
+          clusterhead = mess->clhead;
+        }
+        else{
+          int16_t routd = distanceBetween(router, clusterhead)+ distanceBetween(TOS_NODE_ID, router);          
+          if (routd > d+dn && mess->content > d+dn) {
+            router = mess->from;
+            clusterhead = mess->clhead;
+          }
+        }
+      }
     }
   }
 
