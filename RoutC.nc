@@ -184,7 +184,7 @@ implementation
       
       switch(message->type) {
       case TYPE_ANNOUNCEMENT:
-	dbgMessageLine("Announcement","Announcement: Sending message ",message);
+	//dbgMessageLine("Announcement","Announcement: Sending message ",message);
 	break;
       case TYPE_CONTENT:
 	dbgMessageLineInt("Content","Content: Sending message ",message," via ",receiver);
@@ -279,6 +279,7 @@ implementation
    * its router.
    */
   void announceReceive(rout_msg_t *mess) {
+		uint16_t j;
     if(switchrouter) {
       /* We need updated router information */
       switchrouter = FALSE;
@@ -306,11 +307,13 @@ implementation
 			int16_t dn	= distanceBetween(TOS_NODE_ID, mess->from);
       if(router == -1 && myd >= d+dn) {
 				router = mess->from;
+				cStar = d;
       }
 			else {
       	int16_t routd = distance(router)+ distanceBetween(TOS_NODE_ID, router);
 				if (routd > d+dn && mess->content > d+dn) {
 					router = mess->from;
+
 				}
 			}
     }
@@ -389,7 +392,7 @@ implementation
     dbgMessageLine("Event","--- EVENT ---: Received ",mess);
     switch(mess->type) {
     case TYPE_ANNOUNCEMENT:
-      dbgMessageLine("Announcement","Announcement: Received ",mess);
+      //dbgMessageLine("Announcement","Announcement: Received ",mess);
       announceReceive(mess);
       break;
     case TYPE_CONTENT:
