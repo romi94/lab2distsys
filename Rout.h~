@@ -37,6 +37,9 @@
 /* Max nr of nodes */
 #define MAXNODES 50;
 
+/* The maximum distance */
+#define MAXVALUE 65535
+
 /* The datastructure for the messages 
  * For additions use the nx_ types.
  * E.g. if you want a int32_t use nx_int32_t
