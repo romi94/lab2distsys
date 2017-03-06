@@ -26,7 +26,7 @@
 #define BATTERYSTART 100
 
 /* Whether basic routing should be used */
-#define BASICROUTER   1
+#define BASICROUTER   0
 
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
