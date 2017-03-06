@@ -31,6 +31,7 @@
 //2 for cluster routing
 #define BASICROUTER   1
 
+
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
 

@@ -47,7 +47,6 @@ implementation
 
   /* Battery level */
   uint16_t battery = 0;
-
   /* ==================== HELPER FUNCTIONS ==================== */
 
   /* Returns a random number between 0 and n-1 (both inclusive)	*/
@@ -274,6 +273,7 @@ implementation
    * its router.
    */
   void announceReceive(rout_msg_t *mess) {
+		uint16_t j;
     if(switchrouter) {
       /* We need updated router information */
       switchrouter = FALSE;
@@ -383,7 +383,7 @@ implementation
     dbgMessageLine("Event","--- EVENT ---: Received ",mess);
     switch(mess->type) {
     case TYPE_ANNOUNCEMENT:
-      dbgMessageLine("Announcement","Announcement: Received ",mess);
+      //dbgMessageLine("Announcement","Announcement: Received ",mess);
       announceReceive(mess);
       break;
     case TYPE_CONTENT:
