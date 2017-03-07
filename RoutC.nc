@@ -110,12 +110,17 @@ implementation
 
   event void Boot.booted() {
     call RandomInit.init();
-		if (isSink() || random(2)) {
-			clusterhead = TOS_NODE_ID;
+		if (BASICROUTER == 2) {
+			if (isSink() || random(2) != 0) {
+				clusterhead = TOS_NODE_ID;
+			}
+    	else{
+      	clusterhead = 0;
+    	}
 		}
-    else{
-      clusterhead = -1;
-    }
+		else {
+			clusterhead = 0;
+		}
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
   }
@@ -283,7 +288,7 @@ implementation
   
   /*
    * This it what a node does when it gets an announcement from
-   * another node. Here is where the node chooses which node to use as
+   * another node. Here is where the nodttery: Node ran out of batterye chooses which node to use as
    * its router.
    */
   void announceReceive(rout_msg_t *mess) {
@@ -291,6 +296,7 @@ implementation
       /* We need updated router information */
       switchrouter = FALSE;
       router = -1;
+			count = 1;
     }
 
     /* Here is the Basic routing algorithm. You will do a better one below. */
@@ -323,8 +329,9 @@ implementation
         int16_t myd = distance(TOS_NODE_ID);
         int16_t d   = distance(mess->from);
         int16_t dn  = distanceBetween(TOS_NODE_ID, mess->from);
-        if(router == -1 && myd >= d+dn) {
+        if(router == -1) {
           router = mess->from;
+    			dbg("Announcement", "Announcement: router: %d.\n", router);
         }
         else {
           int16_t routd = distance(router)+ distanceBetween(TOS_NODE_ID, router);
@@ -357,20 +364,38 @@ implementation
     static uint32_t sequence = 0;
     message->from    = TOS_NODE_ID;       /* The ID of the node */
     message->type    = TYPE_CONTENT;
-    message->content = 1;
+    message->content = count;
     message->seq     = sequence++;
+		message->clhead = clusterhead;
+    dbg("Content", "Content: clusterhead: %d, router: %d, count: %d.\n", clusterhead, router, count);
     routMessage();
     switchrouter = TRUE; /* Ready for another router round */
   }
 
 
   void contentReceive(rout_msg_t *mess) {
-    if(call RouterQueue.enqueue(*mess) == SUCCESS) {
-      dbg("RoutDetail", "Rout: Message from %d enqueued\n", mess-> from);
-    } else {
-      dbgMessageLine("Rout", "Rout: queue full, message dropped:", mess);
-    }
-    rout();
+		if (BASICROUTER != 2) {
+    	if(call RouterQueue.enqueue(*mess) == SUCCESS) {
+      	dbg("RoutDetail", "Rout: Message from %d enqueued\n", mess-> from);
+    	} else {
+      	dbgMessageLine("Rout", "Rout: queue full, message dropped:", mess);
+    	}
+    	rout();
+		}
+		else {
+			dbg("Rout", "Rout: mess->from: %d, mess->clhead: %d", mess->from, mess->clhead);
+			if (clusterhead == TOS_NODE_ID && mess->from != mess->clhead) {
+				count += mess->content;
+			}
+			else {
+    		if(call RouterQueue.enqueue(*mess) == SUCCESS) {
+      		dbg("RoutDetail", "Rout: Message from %d enqueued\n", mess-> from);			
+    		} else {
+      		dbgMessageLine("Rout", "Rout: queue full, message dropped:", mess);
+    		}
+			}
+    	rout();
+		}
   }
 
   /*
@@ -379,6 +404,7 @@ implementation
    */
   void contentCollect(rout_msg_t *mess) {
     static uint16_t collected = 0;
+		dbg("Announcement", "Sink: mess->content: %d", mess->content);
     if(mess->content > 0) {
       collected += mess->content;
     }
@@ -399,16 +425,26 @@ implementation
     dbg("Event","--- EVENT ---: Timer @ round %d\n",roundcounter);
     switch(roundcounter % ROUNDS) {
       case ROUND_ANNOUNCEMENT: /* Announcement time */
-        if(isSink()) {
-          dbg("Round","========== Round %d ==========\n",roundcounter/2);
-        }
-        sendAnnounce();
+				if (BASICROUTER != 2 || clusterhead == TOS_NODE_ID) {
+        	if(isSink()) {
+         	 dbg("Round","========== Round %d ==========\n",roundcounter/ROUNDS);
+        	}
+         	dbg("Round","Before announce.\n");
+        	sendAnnounce();
+				}
         break;
       case ROUND_CONTENT: /* Message time */
-        if(!isSink()) {
+				if (BASICROUTER == 2 && clusterhead != TOS_NODE_ID) {
           sendContent();
-        }
+				}
         break;
+			case ROUND_CONTENT_CL:
+				if (BASICROUTER != 2 || clusterhead == TOS_NODE_ID) {
+					if (!isSink()) {
+						sendContent();
+					}
+				}
+				break;
       default:
         dbg("Error", "ERROR: Unknown round %d\n", roundcounter);
     }

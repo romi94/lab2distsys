@@ -2,15 +2,16 @@
 #define ROUT_H
 
 /* Timer perdiod in milliseconds */
-#define PERIOD 1000
+#define PERIOD 500
 
 /* Number of columns in topography */
 #define COLUMNS 4
 
 /* Number of different rounds in protocol and the rounds themselves */
-#define ROUNDS 2
+#define ROUNDS 3
 #define ROUND_ANNOUNCEMENT 0
 #define ROUND_CONTENT 1
+#define ROUND_CONTENT_CL 2
 
 /* Message type identifiers */
 #define TYPE_ANNOUNCEMENT 11
@@ -29,7 +30,7 @@
 //0 for basic routing
 //1 for improvised basic routing
 //2 for cluster routing
-#define BASICROUTER   1
+#define BASICROUTER   2
 
 /* ID of the node that acts as the sink */
 #define SINKNODE 0
