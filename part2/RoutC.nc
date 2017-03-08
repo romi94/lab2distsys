@@ -31,7 +31,7 @@ implementation
 {
 
   /* ==================== GLOBALS ==================== */
-  /* Common message buffer*/
+  /* Common message buffer */
   message_t packet;
   rout_msg_t *message;
 
@@ -42,16 +42,16 @@ implementation
   /* If node is looking for a new router */
   bool switchrouter = TRUE;
 
-  /* If the message buffer is in use*/
+  /* If the message buffer is in use */
   bool locked = FALSE;
 
   /* Battery level */
   uint16_t battery = 0;
   
-  /* Flag, if true: this node is a cluster head */
+  /* The cluster head of this node */
 	uint16_t clusterhead;
   
-  /*Count at cluster head*/
+  /* Count at cluster head */
 	uint16_t	count = 1;
 
   /* ==================== HELPER FUNCTIONS ==================== */
@@ -110,17 +110,6 @@ implementation
 
   event void Boot.booted() {
     call RandomInit.init();
-		if (BASICROUTER == 2) {
-			if (isSink() || random(2) != 0) {
-				clusterhead = TOS_NODE_ID;
-			}
-    	else{
-      	clusterhead = 0;
-    	}
-		}
-		else {
-			clusterhead = 0;
-		}
     call MessageControl.start();
     message = (rout_msg_t*)call MessagePacket.getPayload(&packet, sizeof(rout_msg_t));
   }
@@ -296,7 +285,7 @@ implementation
       /* We need updated router information */
       switchrouter = FALSE;
       router = -1;
-			count = 1;
+			count = 1; //Re-initialize count
     }
 
     /* Here is the Basic routing algorithm. You will do a better one below. */
@@ -308,13 +297,13 @@ implementation
       }
     } 
 
-    /* Our implementation of Basic Routing
-     */
+    /* Our implementation of Basic Routing */
     if(BASICROUTER == 1) {
       int16_t myd = distance(TOS_NODE_ID);
       int16_t d   = distance(mess->from);
       int16_t dn  = distanceBetween(TOS_NODE_ID, mess->from);
-      if(router == -1 && myd >= d+dn) {
+			//Handle the init phase, when router == -1
+      if(router == -1) {
         router = mess->from;
       }
       else {
@@ -324,14 +313,17 @@ implementation
         }
       }
     }
+
+		/* Clustering, part 2 */
     if(BASICROUTER == 2){
-      if (clusterhead == TOS_NODE_ID && mess->clhead == mess->from) {
+			//If this node is a cluster head
+      if (clusterhead == TOS_NODE_ID) {
         int16_t myd = distance(TOS_NODE_ID);
         int16_t d   = distance(mess->from);
         int16_t dn  = distanceBetween(TOS_NODE_ID, mess->from);
+				//Handle the init phase, when router == -1
         if(router == -1) {
           router = mess->from;
-    			dbg("Announcement", "Announcement: router: %d.\n", router);
         }
         else {
           int16_t routd = distance(router)+ distanceBetween(TOS_NODE_ID, router);
@@ -342,16 +334,17 @@ implementation
       }
       else{
         int16_t dn  = distanceBetween(TOS_NODE_ID, mess->from);
-        int16_t d   = distanceBetween(mess->from, mess->clhead);
+        int16_t d   = distance(mess->clhead);
+				//Handle the init phase, when router == -1
         if(router == -1) {
           router = mess->from;
-          clusterhead = mess->clhead;
+          clusterhead = mess->from;
         }
         else{
-          int16_t routd = distanceBetween(router, clusterhead)+ distanceBetween(TOS_NODE_ID, router);          
+          int16_t routd = distance(router)+ distanceBetween(TOS_NODE_ID, router);          
           if (routd > d+dn && mess->content > d+dn) {
             router = mess->from;
-            clusterhead = mess->clhead;
+            clusterhead = mess->from;
           }
         }
       }
@@ -364,17 +357,19 @@ implementation
     static uint32_t sequence = 0;
     message->from    = TOS_NODE_ID;       /* The ID of the node */
     message->type    = TYPE_CONTENT;
-    message->content = count;
+    message->content = count;							/* The count of the node (for normal node == 1) */
     message->seq     = sequence++;
-		message->clhead = clusterhead;
-    dbg("Content", "Content: clusterhead: %d, router: %d, count: %d.\n", clusterhead, router, count);
+		message->clhead = clusterhead;				/* The cluster head of this node */
+		if (router == -1) {										/* If didn't get any announcement, try sending directly to the sink anyway */
+			router = SINKNODE;
+		}
     routMessage();
     switchrouter = TRUE; /* Ready for another router round */
   }
 
 
   void contentReceive(rout_msg_t *mess) {
-		if (BASICROUTER != 2) {
+		if (BASICROUTER != 2) {		//Not part 2
     	if(call RouterQueue.enqueue(*mess) == SUCCESS) {
       	dbg("RoutDetail", "Rout: Message from %d enqueued\n", mess-> from);
     	} else {
@@ -382,9 +377,8 @@ implementation
     	}
     	rout();
 		}
-		else {
-			dbg("Rout", "Rout: mess->from: %d, mess->clhead: %d", mess->from, mess->clhead);
-			if (clusterhead == TOS_NODE_ID && mess->from != mess->clhead) {
+		else {	//Part 2
+			if (clusterhead == TOS_NODE_ID && !switchrouter) {	//!switchrouter means content is not sent to the sink yet
 				count += mess->content;
 			}
 			else {
@@ -393,8 +387,8 @@ implementation
     		} else {
       		dbgMessageLine("Rout", "Rout: queue full, message dropped:", mess);
     		}
+				rout();
 			}
-    	rout();
 		}
   }
 
@@ -404,7 +398,6 @@ implementation
    */
   void contentCollect(rout_msg_t *mess) {
     static uint16_t collected = 0;
-		dbg("Announcement", "Sink: mess->content: %d", mess->content);
     if(mess->content > 0) {
       collected += mess->content;
     }
@@ -425,11 +418,19 @@ implementation
     dbg("Event","--- EVENT ---: Timer @ round %d\n",roundcounter);
     switch(roundcounter % ROUNDS) {
       case ROUND_ANNOUNCEMENT: /* Announcement time */
-				if (BASICROUTER != 2 || clusterhead == TOS_NODE_ID) {
+				//For part 2, init the cluster head
+				if (BASICROUTER == 2) {
+					if (isSink() || random(2)) {
+						clusterhead = TOS_NODE_ID;
+					}
+    			else {
+      			clusterhead = 0;
+    			}
+				}
+				if (BASICROUTER != 2 || clusterhead == TOS_NODE_ID) {	//Only send announcement in these cases
         	if(isSink()) {
          	 dbg("Round","========== Round %d ==========\n",roundcounter/ROUNDS);
         	}
-         	dbg("Round","Before announce.\n");
         	sendAnnounce();
 				}
         break;
@@ -438,7 +439,7 @@ implementation
           sendContent();
 				}
         break;
-			case ROUND_CONTENT_CL:
+			case ROUND_CONTENT_CL:	/* Aggregate and send (for cluster heads) */
 				if (BASICROUTER != 2 || clusterhead == TOS_NODE_ID) {
 					if (!isSink()) {
 						sendContent();
